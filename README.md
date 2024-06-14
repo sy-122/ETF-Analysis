@@ -1,7 +1,7 @@
 # ETF-Analysis
 
-This is a simple analysis of fout different ETFs in the US market. The industries looked into are technology, finance, industry and energy.
-Some of the companies included in each ETFs are: 
+This repository contains a comprehensive analysis of four distinct ETFs representing key sectors in the US market: technology, finance, industry, and energy.
+Some of the companies included in each ETF are: 
   1. Tech - XLK (Technology Select Sector SPDR Fund) 
   Apple Inc. (AAPL)
   NVIDIA Corporation (NVDA)
