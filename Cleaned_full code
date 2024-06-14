@@ -1,0 +1,120 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import yfinance as yf
+import datetime as dt
+import pandas_datareader as pdr
+import seaborn as sns
+
+# Select date range
+start = dt.datetime(2019, 7, 1)
+end = dt.datetime(2024, 3, 1)
+
+# Get inflation data (CPI)
+cpi = pdr.get_data_fred('CPIAUCSL', start, end)
+print(cpi.tail())
+
+# Get Federal Funds Rate data
+fed_funds_rate = pdr.get_data_fred('FEDFUNDS', start, end)
+print(fed_funds_rate.tail())
+
+# Download sector data using yfinance
+sectors = {
+    'tech': 'XLK',
+    'finance': 'XLF',
+    'industrial': 'XLI',
+    'energy': 'XLE'
+}
+
+# Store data in a dictionary
+sector_data = {sector: yf.download(ticker, start, end) for sector, ticker in sectors.items()}
+
+# Calculate 30-day moving averages
+for sector, df in sector_data.items():
+    df['Close: 30 Mean'] = df['Close'].rolling(window=30).mean()
+
+# Plot 30-day moving averages
+fig, ax = plt.subplots(dpi=150, figsize=(15, 8))
+for sector, df in sector_data.items():
+    df['Close: 30 Mean'].plot(ax=ax, label=sector.capitalize())
+plt.legend(loc=(1.1, 0.5))
+plt.title('30-Day Moving Averages of Different Sectors')
+plt.xlabel('Date')
+plt.ylabel('30-Day Moving Average')
+plt.show()
+
+# Function to calculate cumulative returns
+def cum_10000(data):
+    ret = data['Adj Close'].pct_change(1)[1:]
+    cum_ret = (ret + 1).cumprod()
+    ret_10000 = cum_ret * 10000
+    return ret_10000
+
+# Plot cumulative returns
+fig, ax = plt.subplots(figsize=(10, 5))
+for sector, df in sector_data.items():
+    cum_returns = cum_10000(df)
+    cum_returns.plot(ax=ax, label=sector.capitalize())
+plt.title('Cumulative Returns for Different Sectors')
+plt.xlabel('Date')
+plt.ylabel('Portfolio Value')
+plt.legend(loc=(1.1, 0.5))
+plt.show()
+
+# Function to calculate Sharpe Ratio
+def get_sharpe_ratio(data, rfr=0.04):
+    mean_return = data['Adj Close'].pct_change(1).mean()
+    std = data['Adj Close'].pct_change(1).std()
+    sharpe_ratio = (mean_return - rfr) / std
+    return (252**0.5) * sharpe_ratio
+
+# Plot trading volume
+fig, ax = plt.subplots(dpi=150, figsize=(10, 5))
+for sector, df in sector_data.items():
+    (df['Volume'] * df['Adj Close']).plot(ax=ax, label=sector.capitalize())
+plt.legend(loc=(1.1, 0.5))
+plt.title('Trading Volume in Dollar Amount')
+plt.xlabel('Date')
+plt.ylabel('Trading Volume')
+plt.show()
+
+# Change datetime index to the first day of each month
+for sector, df in sector_data.items():
+    df.index = df.index + pd.offsets.MonthBegin(1)
+
+# Combine sector data into a single DataFrame
+portfolio_df = pd.concat(sector_data.values(), axis=1, keys=sector_data.keys())
+
+# Merge sector data with macroeconomic data
+macro_data = pd.concat([cpi, fed_funds_rate], axis=1)
+macro_data.columns = ['CPI', 'Fed Funds Rate']
+data = portfolio_df.merge(macro_data, left_index=True, right_index=True, how='inner')
+
+# Plot Federal Funds Rate vs CPI
+fig, ax1 = plt.subplots(figsize=(10, 5))
+
+ax1.set_xlabel('Date')
+ax1.set_ylabel('Federal Funds Rate', color='tab:blue')
+ax1.plot(data.index, data['Fed Funds Rate'], color='tab:blue', label='Fed Funds Rate')
+ax1.tick_params(axis='y', labelcolor='tab:blue')
+
+ax2 = ax1.twinx()
+ax2.set_ylabel('CPI', color='tab:red')
+ax2.plot(data.index, data['CPI'], color='tab:red', linestyle='--', label='CPI')
+ax2.tick_params(axis='y', labelcolor='tab:red')
+
+fig.tight_layout()
+plt.title('Federal Funds Rate vs CPI')
+fig.legend(loc='upper left', bbox_to_anchor=(0.1, 0.9))
+plt.show()
+
+# Compute correlation matrix
+correlation_matrix = data.corr()
+
+# Plot correlation matrix heatmap
+plt.figure(figsize=(8, 6))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+plt.title('Correlation Matrix')
+plt.xlabel('Variables')
+plt.ylabel('Variables')
+plt.show()
